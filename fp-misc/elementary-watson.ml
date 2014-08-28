@@ -331,7 +331,6 @@ and variables_in (xs: complex list): SS.t =
     List.fold_left collect_complex SS.empty xs
 
 (* unification *)
-
 and unify (x: simple) (y: simple) (b: bindings): bindings =
   match (x, y) with
   | _ when x = y -> b
@@ -386,56 +385,21 @@ and prove_simple (goal: simple) (b: bindings): bindings list =
         try prove_all premises (unify goal (Rel (name, conclusion)) b)
         with Fail -> []) (DB.find name)
 
-(* and prove_all (goals: complex list) (b: bindings): bindings list =
+and prove_all (goals: complex list) (b: bindings): bindings list =
   match goals with
   | [] -> [b]
-  | Neq (l, r) :: xs ->
-      (* filter out bindings that unifies x and y *)
-      let bs = prove_all xs b in
-      List.filter (prove_neq l r) bs
+  | (Neq (l, r)) :: xs ->
+      (* TODO: check variable exists? then combine prove_neq with unify *)
+      if prove_neq l r b then
+        let bs = prove_all xs b in
+        List.filter (prove_neq l r) bs
+      else []
   | x :: xs -> mapcat (prove_all xs) (prove x b)
 
 and prove_neq (x: simple) (y: simple) (b: bindings): bool =
-  try (ignore (unify x y b); false)
-  with Fail -> true
- *)
-
-and prove_all (goals: complex list) (b: bindings): bindings list =
-  (* Inequality is checked each time after proving a goal. *)
-  let rec walk goals neqs b =
-    match goals with
-    | [] -> [b]
-    | x :: xs ->
-        let bs = prove x b in
-        let bs' = List.filter (prove_neqs neqs) bs in
-        mapcat (walk xs neqs) bs'
-  and partition_neq goals =
-    match goals with
-    | [] -> [], []
-    | Neq (l, r) :: xs ->
-        let neqs, goals = partition_neq xs in
-        ((l, r) :: neqs, goals)
-    | x :: xs ->
-        let neqs, goals = partition_neq xs in
-        (neqs, x :: goals)
-  in
-    let neqs, goals = partition_neq goals in
-    walk goals neqs b
-
-(* prove whether bindings satisfies every non-equality clauses. *)
-and prove_neqs (neqs: (simple * simple) list) (b: bindings): bool =
-  match neqs with
-  | [] -> true
-  | (x, y) :: xs when prove_neq x y b -> prove_neqs xs b
-  | _ -> false
-
-and prove_neq (x: simple) (y: simple) (b: bindings): bool =
-  match (x, y) with
-  | _ when x = y -> false
-  | (Var x, _) -> prove_neq_variable x y b
-  | (_, Var y) -> prove_neq_variable y x b
-  | (Rel (n1, xs), Rel (n2, ys)) when n1 = n2 -> prove_neq_list xs ys b
-  | _ -> true
+   let x' = subst b x
+   and y' = subst b y in
+   x' <> y'
 
 and prove_neq_variable (x: string) (y: simple) (b: bindings): bool =
   match y with
@@ -475,4 +439,4 @@ let main () =
   let ast = parse l in
   List.iter eval ast
 
-(* let () = main () *)
+let () = main ()
